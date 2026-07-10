@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyperDownloader Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* A little custom glow effect to keep that hacker aesthetic */
+        .glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.5); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <!-- Main Dashboard Container -->
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold tracking-tight mb-2">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">HYPER</span>DOWNLOADER
+            </h1>
+            <p class="text-slate-400 text-sm">High-Speed WebSocket Engine • Web Edition</p>
+        </div>
+
+        <!-- Input Area -->
+        <div class="flex gap-3 mb-8">
+            <input type="text" id="url-input" placeholder="🔗 Paste YouTube or Direct Link here..." 
+                class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+            <button onclick="startDownload()" 
+                class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg transition-all glow active:scale-95">
+                IGNITE
+            </button>
+        </div>
+
+        <!-- Progress Section (Hidden until active) -->
+        <div id="progress-section" class="hidden space-y-4">
+            
+            <div class="flex justify-between text-sm font-medium mb-1">
+                <span id="status-text" class="text-cyan-400">Connecting to server...</span>
+                <span id="speed-text" class="text-slate-400"></span>
+            </div>
+            
+            <!-- The Progress Bar -->
+            <div class="w-full bg-slate-950 rounded-full h-4 border border-slate-800 overflow-hidden relative">
+                <div id="progress-bar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+            </div>
+
+            <!-- Download Ready Action Area -->
+            <div id="result-area" class="hidden mt-6 text-center">
+                <p class="text-green-400 mb-4 font-semibold">✓ Asset processed and ready for local save!</p>
+                <a id="download-btn" href="#" download
+                    class="inline-block bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all transform hover:-translate-y-1">
+                    💾 Save File to Device
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let ws;
+
+        function startDownload() {
+            const urlInput = document.getElementById("url-input").value.trim();
+            if (!urlInput) {
+                alert("Please paste a link first.");
+                return;
+            }
+
+            // Reset UI for a new download
+            document.getElementById("progress-section").classList.remove("hidden");
+            document.getElementById("result-area").classList.add("hidden");
+            const progressBar = document.getElementById("progress-bar");
+            progressBar.style.width = "0%";
+            progressBar.classList.replace("bg-red-500", "bg-cyan-500");
+            document.getElementById("status-text").innerText = "Establishing secure WebSocket connection...";
+            document.getElementById("speed-text").innerText = "";
+
+            // Create WebSocket (Handles both local ws:// and cloud wss://)
+            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/download`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ url: urlInput }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.status === "info") {
+                    document.getElementById("status-text").innerText = data.message;
+                } 
+                else if (data.status === "downloading") {
+                    progressBar.style.width = data.percentage + "%";
+                    document.getElementById("status-text").innerText = `Extracting payload... ${data.percentage}%`;
+                    document.getElementById("speed-text").innerText = `${data.speed_mb} MB/s`;
+                } 
+                else if (data.status === "complete") {
+                    document.getElementById("status-text").innerText = "100%";
+                    document.getElementById("speed-text").innerText = "Done";
+                    document.getElementById("result-area").classList.remove("hidden");
+                    
+                    const btn = document.getElementById("download-btn");
+                    btn.href = data.download_url;
+                    btn.innerText = `💾 Save: ${data.filename}`;
+                    ws.close();
+                } 
+                else if (data.status === "error") {
+                    document.getElementById("status-text").innerText = `System Error: ${data.message}`;
+                    progressBar.classList.replace("from-cyan-500", "from-red-500");
+                    progressBar.classList.replace("to-blue-500", "to-red-600");
+                    progressBar.style.width = "100%";
+                    ws.close();
+                }
+            };
+
+            ws.onerror = () => {
+                document.getElementById("status-text").innerText = "WebSocket connection failed.";
+                document.getElementById("status-text").classList.add("text-red-500");
+            };
+        }
+    </script>
+</body>
+</html>

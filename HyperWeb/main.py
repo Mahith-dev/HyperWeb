@@ -115,3 +115,10 @@ async def download_file(filename: str):
     if os.path.exists(file_path):
         return FileResponse(path=file_path, filename=filename, media_type='application/octet-stream')
     return {"error": "File not found or expired."}
+    
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    # Dynamically bind to the platform's environmental port, falling back to 8000 for SnapDeploy
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
